@@ -1,0 +1,23 @@
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    # The launcher, its batch files and the registry lookup are Windows-only.
+    # Tests that read an installed T3 skip here: the runner has none.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t3-latex-zip
+          path: dist/*.zip

@@ -1,0 +1,3 @@
+* text=auto
+# cmd misreads batch files with LF line endings (goto, labels, chcp).
+*.cmd text eol=crlf

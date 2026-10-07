@@ -1,0 +1,6 @@
+node_modules/
+mod/assets/
+dist/
+scratch/
+test/.tmp-*/
+launcher/t3.ico

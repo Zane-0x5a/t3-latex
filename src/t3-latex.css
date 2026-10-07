@@ -1,0 +1,51 @@
+/* Layout fixes for KaTeX inside T3's chat column. */
+
+/* A formula wider than the column scrolls sideways instead of overflowing. */
+.chat-markdown .katex-display {
+  margin: 0.75em 0;
+  padding: 0.2em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+/* The chat column lets long words break anywhere; a formula must not.
+   KaTeX's default 1.21em is sized for serif body text; next to T3's sans
+   text a little smaller matches better. */
+.chat-markdown .katex {
+  overflow-wrap: normal;
+  word-break: normal;
+  font-size: 1.1em;
+}
+
+/* Display math that opens a list item sits closer to the marker. */
+.chat-markdown li > .katex-display:first-child {
+  margin-top: 0.25em;
+}
+
+/* Number equations per message: (1), (2), … KaTeX counts on <body>, but T3
+   gives each message `contain: content`, which cuts that counter apart and
+   leaves every row at (1). */
+.chat-markdown {
+  counter-reset: katexEqnNo mmlEqnNo;
+}
+
+/* KaTeX hangs an equation number's 2px alignment strut past the right edge,
+   which would give every numbered display a scrollbar. */
+.chat-markdown .katex-display > .katex > .katex-html > .tag {
+  right: 2px;
+}
+
+/* Each formula's TeX source, as hidden text around the glyphs: what T3's
+   "Cite" quotes, and what screen readers read (see src/katex.js). Hidden the
+   way KaTeX hides its MathML. */
+.katex .t3latex-src {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  white-space: pre;
+}
