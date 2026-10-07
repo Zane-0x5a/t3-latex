@@ -1,0 +1,583 @@
+/*
+  Base styles of a visualization frame. Everything a ```visualize block can
+  use without styling it itself: T3's theme as CSS variables, a categorical
+  palette, native controls dressed to match T3, and a few layout classes.
+  Selectors sit in :where() so any rule the block writes wins. The class
+  names are the ones Codex's visualizations use, so those look right here too.
+
+  The host fills the theme variables in from T3 (runtime.js); the values here
+  only stand in when the frame is opened on its own.
+*/
+
+:root {
+  color-scheme: light dark;
+  --background: light-dark(#ffffff, #0a0a0a);
+  --foreground: light-dark(#262626, #f5f5f5);
+  --card: light-dark(#ffffff, #171717);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(#ffffff, #171717);
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(#4f46e5, #818cf8);
+  --primary-foreground: light-dark(#ffffff, #0a0a0a);
+  --secondary: light-dark(#f4f4f5, #27272a);
+  --secondary-foreground: var(--foreground);
+  --muted: light-dark(#f4f4f5, #27272a);
+  --muted-foreground: light-dark(#71717a, #a1a1aa);
+  --accent: light-dark(#f4f4f5, #27272a);
+  --accent-foreground: var(--foreground);
+  --destructive: light-dark(#dc2626, #f87171);
+  --border: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
+  --input: var(--border);
+  --ring: var(--primary);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --font-size: 14px;
+  --font-size-base: var(--font-size);
+  --text: var(--foreground);
+  --radius: 8px;
+
+  /* Categorical palette for series and categories, in this order: blue,
+     orange, aqua, yellow, magenta, green. Validated for colour-blind
+     separation on light and on dark surfaces. */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-6: #008300;
+  /* Codex-style names for the same colours. */
+  --viz-series-1: var(--viz-1);
+  --viz-series-2: var(--viz-2);
+  --viz-series-3: var(--viz-3);
+  --viz-series-4: var(--viz-4);
+  --viz-series-5: var(--viz-5);
+  --viz-series-6: var(--viz-6);
+  --blue: var(--viz-1);
+  --orange: var(--viz-2);
+  --green: var(--viz-3);
+  --yellow: var(--viz-4);
+  --purple: var(--viz-5);
+  --red: var(--destructive);
+
+  font: var(--font-size) / 1.5 var(--font-sans);
+  color: var(--text);
+  background: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+:root[data-theme='dark'] {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+}
+
+html {
+  overflow: hidden;
+}
+html.t3viz-expanded {
+  overflow: auto;
+}
+body {
+  margin: 0;
+  padding: 2px 1px;
+  display: flow-root; /* its height holds its children's margins: the frame's height */
+  background: transparent;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ---- text ---- */
+
+:where(h1, h2, h3, h4) {
+  margin: 0 0 0.5em;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+:where(h1) {
+  font-size: 1.2em;
+}
+:where(h2) {
+  font-size: 1.1em;
+}
+:where(h3, h4) {
+  font-size: 1em;
+}
+:where(p) {
+  margin: 0.5em 0;
+}
+:where(strong, b) {
+  font-weight: 600;
+}
+:where(code, kbd, samp, pre) {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+:where(a) {
+  color: var(--primary);
+}
+:where(hr) {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0.75em 0;
+}
+:where(.text-muted, .muted) {
+  color: var(--muted-foreground);
+}
+:where(.text-small, .small, small) {
+  font-size: 0.857em;
+}
+:where(.tabular-nums, .num) {
+  font-variant-numeric: tabular-nums;
+}
+:where(.text-destructive) {
+  color: var(--destructive);
+}
+:where(.text-warning) {
+  color: var(--warning, #d97706);
+}
+:where(.sr-only) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- graphics ---- */
+
+:where(svg, canvas, img, video) {
+  max-width: 100%;
+}
+:where(canvas) {
+  display: block;
+}
+:where(svg) {
+  font-family: var(--font-sans);
+}
+:where(svg text:not([fill])) {
+  fill: currentColor;
+}
+:where(svg .axis, svg .tick) {
+  color: var(--muted-foreground);
+}
+/* Lucide icons ([data-lucide], runtime.js) */
+:where(svg.lucide) {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  vertical-align: -0.2em;
+  stroke-width: 1.6;
+}
+
+/* ---- controls ---- */
+
+:where(button, .btn) {
+  font: inherit;
+  font-size: 0.929em;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 0.3em 0.8em;
+  min-height: 2em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+}
+:where(button, .btn):hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+:where(.btn-primary, button[aria-pressed='true'], .btn[aria-pressed='true'], .btn[aria-selected='true'], .btn.is-selected, .btn.active, button.active) {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
+:where(.btn-primary, button[aria-pressed='true'], .btn.active, button.active):hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  filter: brightness(1.08);
+}
+:where(.btn-ghost) {
+  border-color: transparent;
+  background: transparent;
+}
+:where(.btn-block) {
+  display: flex;
+  width: 100%;
+}
+:where(.cursor-interaction) {
+  cursor: pointer;
+}
+/* A selectable tile in a .viz-grid: fills its cell, keeps the fill its
+   category gave it, and shows selection as a ring. */
+:where(.btn.viz-tile) {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:where(.btn.viz-tile):is([aria-pressed='true'], [aria-selected='true'], .is-selected, .active) {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring);
+  filter: none;
+}
+:where(button, .btn):disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+:where(button, .btn, input, select, textarea):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+:where(select, textarea, .form-select, .form-control),
+:where(input:is([type='text'], [type='number'], [type='search'], [type='email'], [type='url'], [type='date'], [type='time'], [type='datetime-local'], :not([type]))) {
+  font: inherit;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  padding: 0.25em 0.55em;
+  min-height: 2em;
+  max-width: 100%;
+}
+:where(input[type='number']) {
+  width: 6em;
+  font-variant-numeric: tabular-nums;
+}
+:where(input[type='range'], .form-range) {
+  accent-color: var(--primary);
+  width: 100%;
+  margin: 0.3em 0;
+  cursor: pointer;
+}
+:where(input[type='checkbox'], input[type='radio']) {
+  accent-color: var(--primary);
+  margin: 0 0.4em 0 0;
+  vertical-align: -0.12em;
+}
+:where(input[type='color'], .form-control-color) {
+  width: 2.4em;
+  height: 2em;
+  padding: 2px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+}
+:where(.form-label) {
+  display: block;
+  margin-bottom: 0.2em;
+  color: var(--muted-foreground);
+  font-size: 0.929em;
+}
+:where(.form-label > input, .form-label > select) {
+  margin-top: 0.25em;
+}
+:where(.form-check) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  cursor: pointer;
+}
+:where(.form-check-input) {
+  margin: 0 0.4em 0 0;
+}
+/* A checkbox shown as a switch. */
+:where(.form-switch .form-check-input) {
+  appearance: none;
+  position: relative;
+  width: 2em;
+  height: 1.15em;
+  flex: none;
+  border-radius: 999px;
+  background: var(--input);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+:where(.form-switch .form-check-input)::before {
+  content: '';
+  position: absolute;
+  top: 0.15em;
+  left: 0.15em;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform 0.15s;
+}
+:where(.form-switch .form-check-input:checked) {
+  background: var(--primary);
+}
+:where(.form-switch .form-check-input:checked)::before {
+  transform: translateX(0.85em);
+}
+:where(.form-check-input:disabled, .form-check-input:disabled + .form-check-label) {
+  opacity: 0.5;
+  cursor: default;
+}
+:where(.form-label > :is(.form-control, .form-select)) {
+  display: block;
+  width: 100%;
+}
+:where(output) {
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+/* ---- layout ---- */
+
+:where(.viz-row) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 1em;
+}
+/* A row of controls that wraps: labelled fields share the width, buttons and
+   notes keep their own size. */
+:where(.viz-controls) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6em 1.25em;
+  margin: 0 0 0.75em;
+}
+:where(.viz-controls > .form-label) {
+  flex: 1 1 200px;
+  min-width: min(100%, 180px);
+  margin: 0;
+}
+:where(.viz-controls > .form-label > :is(input:not([type='checkbox'], [type='radio']), select, textarea)) {
+  display: block;
+  width: 100%;
+}
+:where(.viz-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 0.75em;
+}
+:where(.card) {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 0.75em 1em;
+}
+:where(.viz-stat) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+}
+:where(.viz-stat-value) {
+  font-size: 1.45em;
+  font-weight: 500;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+:where(.viz-badge) {
+  display: inline-block;
+  padding: 0.05em 0.55em;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 0.857em;
+}
+:where(.progress) {
+  display: flex;
+  height: 8px;
+  margin: 0.45em 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--muted);
+}
+:where(.progress-bar) {
+  height: 100%;
+  flex: none;
+  background: var(--viz-series-1);
+}
+/* A quiet dot grid behind a mockup. */
+:where(.viz-dotted-background) {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--foreground) 14%, transparent) 0.8px, transparent 0.8px);
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+/* ---- tabs and variant carousels (their behaviour is in runtime.js) ---- */
+
+:where(.nav) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+:where(.nav-link) {
+  font: inherit;
+  font-size: 0.929em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-height: 2em;
+  padding: 0.3em 0.8em;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  filter: none;
+}
+:where(.nav-link:hover) {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+/* The selected tab stays neutral: a filled pill, not the primary colour. */
+:where(.nav-link.active, .nav-link[aria-selected='true']) {
+  background: var(--muted);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+:where(.nav-link:disabled, .nav-link[aria-disabled='true']) {
+  opacity: 0.5;
+  cursor: default;
+}
+:where(.nav-justified .nav-link) {
+  flex: 1 1 0;
+}
+:where(.viz-carousel) {
+  position: relative;
+}
+:where(.viz-carousel-controls) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 0.75em;
+}
+:where(.viz-carousel-controls .btn) {
+  min-width: 2em;
+  font-size: 1.1em;
+}
+:where(.viz-carousel-controls select) {
+  min-width: 0;
+  max-width: 60%;
+}
+
+/* ---- tables ---- */
+
+:where(.table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+:where(.table th, .table td) {
+  padding: 0.4em 0.6em;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+:where(.table th) {
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+:where(.table-responsive) {
+  overflow-x: auto;
+}
+:where(.table-sm th, .table-sm td) {
+  padding: 0.2em 0.45em;
+}
+:where(.table .text-end, .table [align='right']) {
+  text-align: right;
+}
+:where(.table .text-center, .table [align='center']) {
+  text-align: center;
+}
+:where(.text-nowrap) {
+  white-space: nowrap;
+}
+
+/* A tooltip a visualization draws and places itself (Codex's .tooltip). */
+:where(.tooltip) {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 10px));
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  font-size: 0.857em;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---- what runtime.js adds ---- */
+
+.t3viz-tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483647;
+  max-width: min(320px, calc(100vw - 8px));
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  font-size: 0.857em;
+  line-height: 1.4;
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+}
+.t3viz-tooltip[hidden] {
+  display: none;
+}
+
+.t3viz-error {
+  margin: 0.75em 0 0;
+  padding: 0.6em 0.8em;
+  border: 1px solid color-mix(in srgb, var(--destructive) 40%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--destructive) 8%, transparent);
+  color: var(--foreground);
+  font-size: 0.929em;
+}
+.t3viz-error strong {
+  color: var(--destructive);
+  font-weight: 600;
+}
+.t3viz-error pre {
+  margin: 0.4em 0 0.6em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9em;
+}

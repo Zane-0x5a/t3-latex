@@ -4,7 +4,9 @@
 
 LaTeX math for the [T3 Code](https://github.com/pingdotgg/t3code) desktop app on Windows. Open T3 from the **T3 Code (LaTeX)** shortcut and its chat renders `$…$`, `$$…$$`, `\(…\)`, `\[…\]` and bare `\begin{align}` blocks with KaTeX.
 
-It is not a fork and it doesn't patch T3's install: the official T3 runs, keeps auto-updating, and opened from its own icon it is exactly as shipped. The math is loaded into T3 at startup and only by this shortcut.
+It also shows **interactive visualizations** in the chat: a simulation, a plot with sliders or a 3D scene that Claude or Codex puts in its reply runs right there, as in OpenAI's Codex app.
+
+It is not a fork and it doesn't patch T3's install: the official T3 runs, keeps auto-updating, and opened from its own icon it is exactly as shipped. All of this is loaded into T3 at startup and only by this shortcut.
 
 <sub>Unofficial; not affiliated with T3 Tools. Please report problems [here](https://github.com/Zane-0x5a/t3-latex/issues), not on T3 Code's tracker. · [中文说明 →](README.zh-CN.md)</sub>
 
@@ -24,6 +26,31 @@ It is not a fork and it doesn't patch T3's install: the official T3 runs, keeps 
 - Screen readers read the TeX source.
 - Each formula is typeset once and cached, so a streaming reply doesn't re-run KaTeX on every token.
 
+## Interactive visualizations
+
+<p align="center"><img src="docs/visualize.webp" alt="A Claude reply in T3 Code with an interactive damped-oscillator visualization: sliders for the damping ratio and time, live numbers, a spring and its displacement curve" width="100%"></p>
+
+Claude can put a live visual in a reply: a simulation, a plot with sliders, a 3D scene, a geometric construction. It writes it as a ```` ```visualize ```` block of HTML, and t3-latex runs it in place.
+
+- Ask for one ("show me with something I can drag"), or let Claude offer one when turning a knob would make an idea click. The installer puts the `t3-visualize` skill into Claude Code's skills folder; it tells Claude, when it runs in T3, when a visual helps and how to write one.
+- Each visual runs in a sandboxed frame: it can't reach T3, your files or the network. It follows T3's light and dark themes, and its height fits its content.
+- d3, three.js (with its addons) and KaTeX are bundled, so visuals work offline. Scripts from jsDelivr, unpkg, esm.sh and cdnjs load too.
+- Slider and input values are remembered per visual: scroll away and back, or reopen the thread, and they are still set.
+- Hovering shows two buttons under a visual: expand it to most of the window (it keeps running) and reset it.
+- If a visual's code throws, the error shows in it, with a button that puts a fix request into the composer. A visual can offer follow-up questions the same way. Both go into the composer for you to send, and only right after you click in that visual.
+- While the block streams in, a placeholder shows its size; the visual starts once the block is complete.
+- Copying a message copies the block's source.
+
+### Codex's visuals
+
+<p align="center"><img src="docs/visualize-codex.webp" alt="A Codex reply in T3 Code: the Fourier series of a square wave, with a slider for the number of terms, the latest term and the partial sum against the ideal square wave, showing the Gibbs overshoot" width="100%"></p>
+
+Codex has a visualize plugin of its own (it comes with the Codex app, and T3 loads Codex's plugins too). It writes the visual to an HTML file and puts a `visualize{"path": …}` line in its reply. T3 as shipped shows that line as text; with t3-latex the visual shows in its place, in the same sandbox and with the same theme, expand and reset as above.
+
+- Nothing to set up: ask Codex in T3 to show you something, or let it offer.
+- What Codex's visuals expect from their host is there: `window.openai` (the state a visual saves, follow-up questions, links), Lucide icons, tabs, variant carousels, and the classes of Codex's stylesheet.
+- The file is read each time the message shows, so a visual Codex later updates shows its new version.
+
 ## Install
 
 You need Windows 10 or 11 and the [T3 Code desktop app](https://github.com/pingdotgg/t3code/releases), Stable or Nightly.
@@ -32,7 +59,7 @@ You need Windows 10 or 11 and the [T3 Code desktop app](https://github.com/pingd
 2. Double-click `install.cmd`. If SmartScreen warns about a downloaded script, choose *More info → Run anyway*, or unblock the zip in its Properties before extracting.
 3. Quit T3 completely, tray icon included, and open **T3 Code (LaTeX)** from the Start menu or the desktop.
 
-The installer adds one shortcut to the Start menu and one to the desktop, and nothing else. The shortcut has its own taskbar identity, so you can pin it in place of T3's icon and the T3 window it opens groups under the pin.
+The installer adds one shortcut to the Start menu and one to the desktop, and copies the `t3-visualize` skill into `%USERPROFILE%\.claude\skills` (or `CLAUDE_CONFIG_DIR\skills`). Nothing else changes. The shortcut has its own taskbar identity, so you can pin it in place of T3's icon and the T3 window it opens groups under the pin.
 
 - If T3 is already running from its usual icon, the shortcut asks you to quit it first: T3 runs one instance, and that one can't load math any more.
 - If T3 is already running from this shortcut, clicking it again brings the window forward.
@@ -40,7 +67,7 @@ The installer adds one shortcut to the Start menu and one to the desktop, and no
 
 **Updating t3-latex:** quit T3, extract the new zip over the old folder and run `install.cmd` again.
 
-**Uninstalling:** double-click `uninstall.cmd`, which removes the shortcuts, their icon and the logs in `%TEMP%\t3-latex`, then delete the folder. T3 itself was never changed, so there is nothing else to undo.
+**Uninstalling:** double-click `uninstall.cmd`, which removes the shortcuts, their icon, the skill and the logs in `%TEMP%\t3-latex`, then delete the folder. T3 itself was never changed, so there is nothing else to undo.
 
 Tested with T3 Code 0.0.45 on Windows 11. The test suite also passes against the code of the 0.0.46 nightly (the "orchestrator v2" rewrite).
 
@@ -56,7 +83,7 @@ shortcut → conhost --headless → launcher\t3-latex.cmd → find-t3.cmd finds 
 
 Inside T3's main process, `mod/loader.cjs`:
 
-1. Wraps the handler T3 registers for its `t3code://` scheme. Through it, it serves `mod/assets/` (KaTeX's stylesheet and fonts, and the renderer module) under `t3code://app/__t3latex/`, and adds them to the window's `index.html`.
+1. Wraps the handler T3 registers for its `t3code://` scheme. Through it, it serves `mod/assets/` (KaTeX's stylesheet and fonts, the renderer module, and the frame visualizations run in) under `t3code://app/__t3latex/` (`mod/serve.cjs`), and adds the first two to the window's `index.html`.
 2. Edits the one script that holds react-markdown (`mod/patch.cjs`):
    - it appends remark-math to the `remarkPlugins`;
    - it appends KaTeX to the `rehypePlugins`, after T3's sanitizer, which would strip KaTeX's markup;
@@ -76,6 +103,15 @@ If any step fails, T3 runs as shipped and shows plain text:
 
 The logs are `%TEMP%\t3-latex\launcher.log` and `%TEMP%\t3-latex\loader.log`.
 
+### Visualizations
+
+- `src/visualize.js` turns a ```` ```visualize ```` block into a `<t3latex-viz>` element, and a block still streaming in into a placeholder.
+- `src/viz-element.js` defines that element. It holds a sandboxed iframe (`allow-scripts` only, so an opaque origin) on `t3code://app/__t3latex/frame/frame.html`, which `mod/serve.cjs` serves with its own Content-Security-Policy: scripts from the bundled libraries and the four CDNs, nothing fetched from anywhere.
+- The block's HTML, T3's theme and the remembered input values reach the frame in its `window.name`. `frame/runtime.js` writes the HTML into the page while the page is still parsing, so its scripts run in order, as on any page.
+- The frame reports its height, its input values and the user's requests (a question for the composer, a link for the browser) over `postMessage`. The page treats all of it as untrusted: the composer and the browser need a click in that frame just before.
+- Heights and input values are kept in T3's `localStorage`, keyed by a hash of the block, for the last 300 visuals.
+- A Codex line (Codex wraps it in private-use characters: U+E200 `visualize` U+E202 `{…}` U+E201) becomes the same element with the file's path in it. The element reads the file through the loader at `t3code://app/__t3latex/file?path=…` (`mod/serve.cjs`), which serves only `.html` files and only to T3's own page: no CORS headers, and requests from an opaque origin such as the frame are refused. `frame/runtime.js` gives Codex's HTML its `window.openai`, Lucide, tabs and carousels; the state it saves is kept like the input values.
+
 ### Formulas and Cite
 
 T3's Cite builds the quote from a message's text nodes and skips anything `aria-hidden`. It also offers no Cite when the selection starts or ends inside `aria-hidden` content, and KaTeX's glyphs are exactly that. So:
@@ -89,6 +125,9 @@ T3's Cite builds the quote from a message's text nodes and skips anything `aria-
 - **Only this shortcut loads math.** T3 started from its own icon, at login or by a `t3code://` link is plain T3.
 - **The debug port.** For about 0.2 s while T3 starts, its main process has a debug port open on a random port of `127.0.0.1`; the launcher closes it once the loader is in. During that time another program on the same machine could, in principle, connect to it.
 - **Two Electron fuses.** The approach needs T3's exe to accept `--inspect-brk` and `ELECTRON_RUN_AS_NODE`. Both fuses are on today, and T3's own Windows server relies on the second one. If T3 turns either off, this way of loading stops working.
+- **The skill is for Claude Code;** Codex uses its own plugin (above). Other models in T3 draw a visual only when asked for a ```` ```visualize ```` block of HTML, without knowing the conventions.
+- **Codex's visuals, as far as T3 goes.** Codex's day-schedule widget (`<viz-calendar>`) and its design-control panel for mockups (`Tweak`) aren't there; a visual using them shows the rest. The state a visual saves stays with it: the Codex app passes it back to the model, T3 doesn't. And the file has to be on this PC: a Codex running in WSL or on a remote machine writes it where t3-latex can't read it.
+- **CDN scripts need the network,** and some CDNs are slow or blocked on some networks. The bundled libraries don't.
 - **Windows only.**
 
 ## Development
@@ -104,7 +143,8 @@ powershell -ExecutionPolicy Bypass -File install.ps1   # shortcuts pointing at t
 
 `npm test` covers:
 
-- the delimiter normalizer and the whole rendering pipeline;
+- the delimiter normalizer and the whole rendering pipeline, visualization blocks included;
+- the visualization frame's runtime (in jsdom), Codex's API included, and what the loader serves (the frame's policy, CORS, no path escapes, Codex's files only to T3's page);
 - the react-markdown edits and Cite on rendered formulas, both run against the code of the T3 installed on the machine (set `T3LATEX_T3_DIR` to a folder holding another build's `resources\server.asar` to check that build);
 - the launcher's environment;
 - the batch files. These tests briefly write and then delete the registry key `HKCU\Software\t3latex-test`.
@@ -116,6 +156,8 @@ node dev/t3.cjs start                 # start it; its main-process inspector sta
 node dev/t3.cjs shot out.png          # screenshot of its window
 node dev/t3.cjs js "<expr>|@file"     # evaluate in its window
 node dev/t3.cjs main "<expr>|@file"   # evaluate in its main process
+node dev/t3.cjs frame "<expr>|@file"  # evaluate in every visualization frame (out-of-process, sandboxed)
+node dev/t3.cjs click X Y             # a real mouse click at window CSS pixels, reaching into those frames
 node dev/t3.cjs stop
 powershell -File dev/iso-launch.ps1 [-Plain] [-Dialog]   # start it with the shortcut's command line
 node dev/t3.cjs main @dev/simulate-update.js            # simulate "Restart to update"
@@ -126,13 +168,18 @@ node dev/t3.cjs js @dev/copy-selection.js               # what copying the last 
 src/normalize.js        delimiter normalizer ($$…$$, \[…\], \(…\), bare environments, prices, unclosed while streaming)
 src/katex.js            cached rehype-katex with data-markdown-copy (T3's copy) and hidden source text (T3's Cite)
 src/selection.js        selections snap to whole formulas; drags that start on a formula
-src/plugins.js          the remark / rehype plugins handed to T3
+src/plugins.js          the remark / rehype plugins handed to T3, and the markdown pass before them
+src/visualize.js        ```visualize blocks and Codex's visualize{"path"} lines → <t3latex-viz>; still streaming → a placeholder
+src/viz-element.js      <t3latex-viz>: the sandboxed frame, theme, height, remembered state, expand and reset; reads Codex's files
 src/boot.js             renderer entry, exposed as globalThis.__t3latex
 src/t3-latex.css        KaTeX layout fixes for the chat (sideways scrolling, numbering per message)
 mod/loader.cjs          the loader in T3's main process
 mod/patch.cjs           the react-markdown edits
+mod/serve.cjs           serves mod/assets (CORS for the frame, the frame's policy) and Codex's visual files
 mod/after-update.js     brings T3 back through the launcher after an update
 mod/assets/             built by build.mjs (with THIRD-PARTY-NOTICES.txt)
+frame/                  the frame page: frame.html, runtime.js, frame.css, library entries
+skill/t3-visualize/     the Claude Code skill install.ps1 copies
 launcher/launch.cjs     the launcher
 launcher/t3-latex.cmd   what the shortcut runs
 launcher/find-t3.cmd    finds T3's exe in the registry
@@ -143,4 +190,4 @@ test/                   node --test
 
 ## License
 
-[MIT](LICENSE). The release zip bundles KaTeX, remark-math and their dependencies. Their licences are in `mod/assets/THIRD-PARTY-NOTICES.txt`.
+[MIT](LICENSE). The release zip bundles KaTeX, remark-math, d3, three.js, Lucide and their dependencies. Their licences are in `mod/assets/THIRD-PARTY-NOTICES.txt`.

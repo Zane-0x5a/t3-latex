@@ -3,10 +3,14 @@ Adds the "T3 Code (LaTeX)" shortcut to the Start menu and the desktop. It
 starts T3 Code with formula rendering through launcher\t3-latex.cmd. Nothing
 in T3's own folder is touched; uninstall.ps1 removes the shortcuts again.
 
+Also copies the t3-visualize skill into Claude Code's skills folder
+(%USERPROFILE%\.claude\skills, or CLAUDE_CONFIG_DIR\skills): it tells Claude,
+when it runs in T3, how to write an interactive visualization.
+
   powershell -ExecutionPolicy Bypass -File install.ps1
-  powershell -ExecutionPolicy Bypass -File install.ps1 -Destination <folder>   (tests)
+  powershell -ExecutionPolicy Bypass -File install.ps1 -Destination <folder> -Skills <folder>   (tests)
 #>
-param([string[]]$Destination)
+param([string[]]$Destination, [string]$Skills)
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
@@ -148,5 +152,16 @@ foreach ($dir in $Destination) {
   [T3Latex.Shortcut]::SetAppUserModelId($path, $appId)
   "created  $path"
 }
+# The skill, replaced whole so files an older version had do not linger.
+if (-not $Skills) {
+  $claude = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '.claude' }
+  $Skills = Join-Path $claude 'skills'
+}
+$skill = Join-Path $Skills 't3-visualize'
+if (Test-Path $skill) { Remove-Item $skill -Recurse -Force }
+New-Item -ItemType Directory -Force $skill | Out-Null
+Copy-Item (Join-Path $root 'skill\t3-visualize\*') $skill -Recurse
+"copied   $skill"
+
 ''
 'Done. Quit T3 Code completely (including its tray icon), then open it from "T3 Code (LaTeX)".'

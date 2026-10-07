@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  The sandboxed frame a ```visualize block runs in (see src/viz-element.js).
+  runtime.js reads the block's HTML from window.name and writes it into the
+  body below, while this document is still being parsed.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="frame.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./lib/three.module.js",
+          "three/addons/": "./lib/three/addons/",
+          "d3": "./lib/d3.module.js"
+        }
+      }
+    </script>
+    <script src="runtime.js"></script>
+  </head>
+  <body>
+    <script>
+      t3viz.__write()
+    </script>
+  </body>
+</html>

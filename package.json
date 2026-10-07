@@ -1,8 +1,8 @@
 {
   "name": "t3-latex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "LaTeX (KaTeX) math rendering for the T3 Code desktop app on Windows, loaded by a launcher so T3 itself is never modified.",
+  "description": "LaTeX (KaTeX) math and interactive visualizations in the T3 Code desktop app on Windows, loaded by a launcher so T3 itself is never modified.",
   "license": "MIT",
   "author": "Zane",
   "repository": {
@@ -33,11 +33,13 @@
   },
   "devDependencies": {
     "@electron/asar": "^3.2.10",
+    "d3": "^7.9.0",
     "esbuild": "^0.24.0",
     "hast-util-from-html-isomorphic": "^2.0.0",
     "hast-util-to-text": "^4.0.2",
     "jsdom": "^29.1.1",
     "katex": "^0.16.11",
+    "lucide": "^1.52.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
@@ -48,6 +50,7 @@
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "three": "^0.186.1",
     "unified": "^11.0.5",
     "unist-util-visit-parents": "^6.0.2"
   }

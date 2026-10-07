@@ -4,8 +4,10 @@
 // T3 serves its window from its own t3code:// scheme. This file wraps the
 // function T3 registers for that scheme, and on the way through it
 //
-//   1. serves this folder's assets/ (KaTeX + our renderer module) under
-//      t3code://app/__t3latex/ ;
+//   1. serves this folder's assets/ (KaTeX, our renderer module, and the
+//      sandboxed frame visualizations run in) under t3code://app/__t3latex/,
+//      and the HTML files Codex-style visualization lines point at
+//      (serve.cjs);
 //   2. adds the KaTeX stylesheet and our module to the window's index.html;
 //   3. edits the one script that holds react-markdown, keyed on react-markdown's
 //      own option names (minifying keeps those): append remark-math to its
@@ -22,13 +24,11 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { patchMarkdownScript, MARKER } = require('./patch.cjs')
+const { serveAsset, serveFile, PREFIX, FILE_PATH } = require('./serve.cjs')
 
-const ASSETS = path.join(__dirname, 'assets')
-const PREFIX = '/__t3latex/'
 const STATE_DIR = path.join(os.tmpdir(), 't3-latex')
 const LOG_FILE = path.join(STATE_DIR, 'loader.log')
 const RUNNING_FILE = path.join(STATE_DIR, 'running.json')
-const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' }
 const INSPECT_FLAG = /^--inspect/
 
 function log(...parts) {
@@ -44,9 +44,15 @@ try {
 } catch {}
 log('loader', 'pid', process.pid, 'electron', process.versions.electron)
 
+// Chinese where the regional format is Chinese, as the launcher's dialogs.
+const LANG = /^zh\b/i.test(Intl.DateTimeFormat().resolvedOptions().locale) ? 'zh' : 'en'
+
 // ---- the scheme handler wrapper ------------------------------------------
 
 const HEAD_TAGS =
+  // The language for our own text in the window (T3's page itself follows
+  // the Windows display language, which can differ).
+  `<meta name="t3latex-lang" content="${LANG}">` +
   `<link rel="stylesheet" href="${PREFIX}katex.min.css">` +
   `<link rel="stylesheet" href="${PREFIX}t3-latex.css">` +
   `<script type="module" src="${PREFIX}boot.js"></script>`
@@ -54,14 +60,6 @@ const HEAD_TAGS =
 const patchedScripts = new Map() // url → edited body, or null to serve as shipped
 let markdownPatched = false
 let warned = false
-
-function serveAsset(pathname) {
-  const file = path.resolve(ASSETS, '.' + decodeURIComponent(pathname.slice(PREFIX.length - 1)))
-  if (!file.startsWith(ASSETS + path.sep) || !fs.existsSync(file)) return new Response(null, { status: 404 })
-  return new Response(fs.readFileSync(file), {
-    headers: { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' },
-  })
-}
 
 // Same status and headers (T3's Content-Security-Policy included), new body.
 function withBody(res, body) {
@@ -104,7 +102,8 @@ function wrapHandler(handler) {
     let url
     try {
       url = new URL(request.url)
-      if (url.pathname.startsWith(PREFIX)) return serveAsset(url.pathname)
+      if (url.pathname === FILE_PATH) return serveFile(request, url)
+      if (url.pathname.startsWith(PREFIX)) return serveAsset(url)
     } catch (err) {
       log('asset error', err && err.stack)
       return new Response(null, { status: 500 })
@@ -126,10 +125,8 @@ function warnUnmatched() {
   if (warned || markdownPatched) return
   warned = true
   try {
-    // Chinese where the regional format is Chinese, as the launcher's dialogs.
-    const zh = /^zh\b/i.test(Intl.DateTimeFormat().resolvedOptions().locale)
     new electron.Notification(
-      zh
+      LANG === 'zh'
         ? { title: 'T3 LaTeX 未启用', body: '这个版本的 T3 Code 改了 Markdown 渲染的代码，公式暂时按原文显示，T3 本身不受影响。' }
         : {
             title: 'T3 LaTeX is off',

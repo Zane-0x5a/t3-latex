@@ -24,8 +24,10 @@ const FILES = [
   'launcher/find-t3.cmd',
   'mod/loader.cjs',
   'mod/patch.cjs',
+  'mod/serve.cjs',
   'mod/after-update.js',
   'mod/assets',
+  'skill',
 ]
 
 execFileSync(process.execPath, [join(here, 'build.mjs')], { stdio: 'inherit' })
