@@ -19,6 +19,7 @@ $env:T3CODE_DISABLE_AUTO_UPDATE = '1'
 $env:T3CODE_DESKTOP_APP_USER_MODEL_ID = 'com.t3tools.t3code.t3latex-test'
 if (-not $Dialog) { $env:T3LATEX_NO_DIALOG = '1' }
 if ($Plain) {
+  [Console]::OutputEncoding = [Text.Encoding]::UTF8   # find-t3.cmd prints UTF-8
   $t3 = & (Join-Path $root 'launcher\find-t3.cmd') | Select-Object -First 1
   Start-Process -FilePath $t3
 } else {

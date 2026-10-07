@@ -11,6 +11,8 @@ $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $cmd = Join-Path $root 'launcher\t3-latex.cmd'
+# find-t3.cmd prints UTF-8 (any path, whatever the console's code page).
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $t3 = & (Join-Path $root 'launcher\find-t3.cmd') | Select-Object -First 1
 $conhost = Join-Path $env:SystemRoot 'System32\conhost.exe'
 if (-not $t3 -or -not (Test-Path $t3)) { throw 'T3 Code not found. Install it first, or set T3LATEX_T3_EXE to its exe.' }
@@ -134,7 +136,8 @@ try {
 
 $shell = New-Object -ComObject WScript.Shell
 foreach ($dir in $Destination) {
-  $path = Join-Path $dir 'T3 Code (LaTeX).lnk'
+  # Absolute: the shortcut and property-store calls resolve against other folders.
+  $path = Join-Path (Resolve-Path -LiteralPath $dir).ProviderPath 'T3 Code (LaTeX).lnk'
   $lnk = $shell.CreateShortcut($path)
   $lnk.TargetPath = $conhost
   $lnk.Arguments = "--headless cmd.exe /d /c `"$cmd`""

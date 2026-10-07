@@ -8,7 +8,12 @@ rem the GUID it derives from T3's app id com.t3tools.t3code. Stable and Nightly
 rem share that id but not the exe name ("T3 Code (Alpha).exe", "T3 Code
 rem (Nightly).exe"), and the folder depends on when T3 was first installed
 rem (Programs\t3-code-desktop for older installs, Programs\t3code now).
+rem
+rem Prints UTF-8 (UTF-16 under cmd /u). reg.exe writes in the console's code
+rem page, and a path outside it (a Chinese user name on an English system)
+rem would come back garbled, so the console is switched to UTF-8 first.
 setlocal
+chcp 65001 >nul
 if not defined T3LATEX_T3_EXE goto find
 echo %T3LATEX_T3_EXE%
 exit /b
