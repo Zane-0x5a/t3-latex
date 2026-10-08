@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-10-08
+
+- "Quote current state", a button under each visual: it puts one line into the composer saying what the visual is set to and shows (each control's label and value, its readouts, the selected tab or variant; for a Codex visual, the `modelContent` it saved), so the model can see what you see. Nothing is sent until you send it.
+
 ## 0.2.0 — 2026-10-07
 
 - Interactive visualizations: a ```` ```visualize ```` block of HTML in a reply runs in the chat, in a sandboxed frame that follows T3's theme and fits its content. Input values are remembered, a visual can be expanded or reset, errors show in it with a button that asks for a fix, and while the block streams a placeholder stands in. d3, three.js and KaTeX are bundled.

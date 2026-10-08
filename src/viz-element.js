@@ -14,8 +14,10 @@
 // The frame reports back over postMessage: its content height (the iframe is
 // sized to fit), the values of its inputs (restored when T3 re-creates the
 // message, e.g. after scrolling it out of view), a question the user asks
-// from inside it (put into T3's composer, not sent) and a web link they
-// clicked (opened in the browser). Everything it says is treated as untrusted.
+// from inside it (put into T3's composer, not sent), a web link they
+// clicked (opened in the browser) and, when the user clicks "Quote current
+// state" under it, a line saying what is set and shown (put into the composer
+// too). Everything it says is treated as untrusted.
 //
 // T3 renders the element with React, which leaves the element's shadow root
 // alone; the frame lives there.
@@ -46,6 +48,7 @@ const TEXT = zh
       expand: '放大',
       collapse: '还原',
       reset: '重置',
+      quote: '引用当前状态',
     }
   : {
       title: 'Interactive visualization',
@@ -57,6 +60,7 @@ const TEXT = zh
       expand: 'Expand',
       collapse: 'Restore size',
       reset: 'Reset',
+      quote: 'Quote current state',
     }
 
 // T3's theme, as the variables its own components use.
@@ -168,6 +172,9 @@ const ICONS = {
     '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 6.5h-4v-4M2.5 9.5h4v4M9.5 6.5 14 2M6.5 9.5 2 14"/></svg>',
   reset:
     '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3v3.5H6"/><path d="M2.9 6.5A5.5 5.5 0 1 1 2.6 9"/></svg>',
+  // Lucide's message-square-quote (ISC), its stroke matched to the others.
+  quote:
+    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14a2 2 0 0 0 2-2V8h-2"/><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/><path d="M8 14a2 2 0 0 0 2-2V8H8"/></svg>',
 }
 
 // The text of each file read so far, by path: a message T3 re-creates shows it
@@ -195,6 +202,7 @@ iframe { display: block; width: 100%; border: 0; background: transparent; color-
 }
 .bar button:hover { background: var(--accent); color: var(--accent-foreground); }
 .bar button:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.bar button[hidden] { display: none; }
 .box:popover-open {
   position: fixed; inset: 4vh 4vw; margin: 0; padding: 36px 16px 16px; display: flex; flex-direction: column;
   border: 1px solid var(--border); border-radius: 12px; background: var(--background);
@@ -225,10 +233,11 @@ iframe { display: block; width: 100%; border: 0; background: transparent; color-
 
 const live = new Set() // elements showing a frame
 
-// A visualization's name for screen readers: its first heading, if any.
-function titleOf(source) {
+// A visualization's first heading, if any: its name for screen readers and in
+// a quote of its state.
+function headingOf(source) {
   const m = /<h[1-3]\b[^>]*>([^<]{1,120})</i.exec(source)
-  return m ? m[1].trim() : TEXT.title
+  return m ? m[1].trim() : ''
 }
 
 class VizElement extends HTMLElement {
@@ -241,6 +250,7 @@ class VizElement extends HTMLElement {
   #file = null
   #key = null
   #saveHeight = 0
+  #quoting = null // the quote asked for: { id, until }
 
   connectedCallback() {
     this.#update()
@@ -338,7 +348,7 @@ class VizElement extends HTMLElement {
     const frame = document.createElement('iframe')
     frame.setAttribute('sandbox', 'allow-scripts')
     frame.setAttribute('referrerpolicy', 'no-referrer')
-    frame.title = this.getAttribute('data-title') || titleOf(this.#source)
+    frame.title = this.#name() || TEXT.title
     // Read by frame/runtime.js; set before src so the frame starts with it.
     frame.name = JSON.stringify({
       t3viz: 1,
@@ -357,16 +367,20 @@ class VizElement extends HTMLElement {
     })
 
     if (!this.#box) {
-      this.#shadow.innerHTML = `<style>${STYLE}</style><div class="box" popover="auto"><div class="bar"><button type="button" data-act="expand"></button><button type="button" data-act="reset"></button></div></div>`
+      this.#shadow.innerHTML = `<style>${STYLE}</style><div class="box" popover="auto"><div class="bar"><button type="button" data-act="quote" hidden></button><button type="button" data-act="expand"></button><button type="button" data-act="reset"></button></div></div>`
       this.#box = this.#shadow.querySelector('.box')
       this.#box.addEventListener('toggle', event => this.#onToggle(event.newState === 'open'))
       this.#shadow.querySelector('.bar').addEventListener('click', event => {
         const act = event.target.closest('button')?.dataset.act
         if (act === 'expand') this.#box.matches(':popover-open') ? this.#box.hidePopover() : this.#box.showPopover()
         else if (act === 'reset') this.#reset()
+        else if (act === 'quote') this.#quote()
       })
       this.#onToggle(false)
     }
+    // Shown once the new frame says it has something to quote.
+    this.#shadow.querySelector('[data-act="quote"]').hidden = true
+    this.#quoting = null
     this.#frame?.remove()
     this.#box.prepend(frame)
     this.#frame = frame
@@ -376,6 +390,25 @@ class VizElement extends HTMLElement {
   #reset() {
     states.delete(this.#key)
     this.#mount()
+  }
+
+  // The title a Codex line gives, or the first heading.
+  #name() {
+    return this.getAttribute('data-title') || headingOf(this.#source)
+  }
+
+  // The user clicked the button, so the frame's answer to this request (and
+  // only it, for a moment) goes into the composer.
+  #quote() {
+    const id = Math.random().toString(36).slice(2)
+    this.#quoting = { id, until: Date.now() + 2000 }
+    this.#post({ t3viz: 'quote', id, title: this.#name() })
+  }
+
+  // Expanded, the box would hide the composer the text goes into.
+  #toComposer(text) {
+    if (this.#box?.matches(':popover-open')) this.#box.hidePopover()
+    askInComposer(text.slice(0, 4000))
   }
 
   // Expanded, the box sits in the top layer (it is not moved, so the frame
@@ -389,6 +422,10 @@ class VizElement extends HTMLElement {
     reset.innerHTML = ICONS.reset
     reset.setAttribute('aria-label', TEXT.reset)
     reset.title = TEXT.reset
+    const quote = this.#shadow.querySelector('[data-act="quote"]')
+    quote.innerHTML = ICONS.quote
+    quote.setAttribute('aria-label', TEXT.quote)
+    quote.title = TEXT.quote
     this.#post({ t3viz: 'mode', expanded: open })
     if (!open) {
       const height = states.get(this.#key)?.height
@@ -433,7 +470,15 @@ class VizElement extends HTMLElement {
         }
       } catch {}
     } else if (data.t3viz === 'ask' && typeof data.text === 'string' && data.text.trim()) {
-      if (this.#userActedHere()) askInComposer(data.text.slice(0, 4000))
+      if (this.#userActedHere()) this.#toComposer(data.text)
+    } else if (data.t3viz === 'quotable') {
+      this.#shadow.querySelector('[data-act="quote"]').hidden = data.value !== true
+    } else if (data.t3viz === 'quote' && typeof data.text === 'string' && data.text.trim()) {
+      const asked = this.#quoting
+      if (asked && data.id === asked.id && Date.now() < asked.until) {
+        this.#quoting = null
+        this.#toComposer(data.text)
+      }
     } else if (data.t3viz === 'open' && typeof data.url === 'string' && /^https?:\/\//i.test(data.url)) {
       // T3 opens a new window's web URL in the browser.
       if (this.#userActedHere()) window.open(data.url, '_blank', 'noopener')

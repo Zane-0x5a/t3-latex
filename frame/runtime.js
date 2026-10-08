@@ -8,7 +8,8 @@
 // markup above them, and get DOMContentLoaded and load like any page.
 //
 // It also gives the block what a chat message needs from it: the frame's
-// height reported to the host, input values remembered and restored, errors
+// height reported to the host, input values remembered and restored, the
+// current state described for the host's "Quote current state" button, errors
 // shown in the frame (with a button to ask for a fix), [data-tooltip]
 // tooltips, web links opened in the browser, animation frames capped at about
 // 60 a second, and window.t3viz:
@@ -42,6 +43,14 @@
         prompt: text => `上面的可视化在运行时出错了：\n\n\`\`\`\n${text}\n\`\`\`\n\n请修复它。`,
         previous: '上一个',
         next: '下一个',
+        quote: (name, items) => `（可视化${name ? `「${name}」` : ''}的当前状态：${items.join('；')}）`,
+        colon: '：',
+        and: '、',
+        on: '开',
+        off: '关',
+        selected: '已选',
+        tab: '标签页',
+        variant: '方案',
       }
     : {
         error: 'The visualization hit an error',
@@ -51,6 +60,14 @@
         prompt: text => `The visualization above failed when it ran:\n\n\`\`\`\n${text}\n\`\`\`\n\nPlease fix it.`,
         previous: 'Previous',
         next: 'Next',
+        quote: (name, items) => `(Current state of the visualization${name ? ` "${name}"` : ''}: ${items.join('; ')})`,
+        colon: ': ',
+        and: ', ',
+        on: 'on',
+        off: 'off',
+        selected: 'Selected',
+        tab: 'Tab',
+        variant: 'Variant',
       }
 
   const post = (type, data) => {
@@ -208,6 +225,12 @@
         lastHeight = -1
         reportSize()
       }
+    } else if (data?.t3viz === 'quote') {
+      let text = null
+      try {
+        text = quote(data.title)
+      } catch {}
+      post('quote', { id: data.id, text })
     }
   })
 
@@ -236,9 +259,11 @@
   let saveTimer = 0
   let saved = JSON.stringify(params.state ?? null)
   function scheduleSave(event) {
-    if (!event.isTrusted || selfSaving) return
+    if (!event.isTrusted) return
     clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
+      reportQuotable()
+      if (selfSaving) return
       const state = {}
       controls().forEach((el, i) => {
         state[keyOf(el, i)] = checkable(el) ? el.checked : el.value
@@ -276,8 +301,125 @@
       try {
         restore(params.state)
       } catch {}
+      reportQuotable()
+      setTimeout(reportQuotable, 1000) // controls a module adds once its imports are in
     })
   })
+
+  // ---- the current state, quoted -------------------------------------------
+
+  // The model wrote the visual but never sees it. The host's "Quote current
+  // state" button puts what the user has set and what the visual shows into
+  // T3's composer as one line: each control with its label, the readouts
+  // (<output>, .viz-stat, aria-live regions), the selected tab, variant or
+  // tile. Codex's HTML says what the model should know itself, in
+  // widgetState.modelContent; that is quoted as it is.
+  const MAX_ITEM = 200
+  const shown = el => !el.closest('[hidden], [aria-hidden="true"], .t3viz-chrome') && getComputedStyle(el).display !== 'none'
+
+  // Text as the user reads it: block boundaries become spaces, formulas their
+  // TeX, controls and hidden parts are left out.
+  function textOf(root) {
+    let text = ''
+    const walk = node => {
+      if (node.nodeType === 3) text += node.data
+      if (node.nodeType !== 1) return
+      if (node.matches('script, style, template, input, select, textarea, button, [aria-hidden="true"], .t3viz-chrome')) return
+      const display = getComputedStyle(node).display
+      if (display === 'none') return
+      const gap = display.startsWith('inline') ? '' : ' '
+      const tex = node.classList.contains('katex') && node.querySelector('annotation[encoding="application/x-tex"]')
+      text += gap
+      if (tex) text += `$${tex.textContent.trim()}$`
+      else node.childNodes.forEach(walk)
+      text += gap
+    }
+    root.childNodes.forEach(walk)
+    text = text.replace(/\s+/g, ' ').trim()
+    return text.length > MAX_ITEM ? `${text.slice(0, MAX_ITEM - 1)}…` : text
+  }
+
+  function labelOf(el) {
+    // The enclosing label too: without a for attribute, a label holding an
+    // <output> before the input labels the output.
+    const label = el.labels?.[0] ?? el.closest('label')
+    if (label) return [textOf(label), label]
+    const ids = el.getAttribute('aria-labelledby')?.split(/\s+/) ?? []
+    const named = ids.map(id => document.getElementById(id)).filter(Boolean).map(textOf).join(' ')
+    return [named || (el.getAttribute('aria-label') || el.title || el.placeholder || el.name || el.id || '').trim(), null]
+  }
+
+  function groupOf(radio) {
+    const legend = radio.closest('fieldset')?.querySelector('legend')
+    if (legend) return textOf(legend)
+    return radio.closest('[role="radiogroup"]')?.getAttribute('aria-label')?.trim() ?? ''
+  }
+
+  // A number in the label's text, as it is written next to a slider.
+  function showsValue(text, value) {
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(^|[^\\d.])${escaped}($|[^\\d.])`).test(text)
+  }
+
+  function controlItem(el) {
+    const [name, label] = labelOf(el)
+    const pair = value => (name ? `${name}${T.colon}${value}` : value)
+    if (el.type === 'checkbox') return pair(el.checked ? T.on : T.off)
+    if (el.type === 'radio') {
+      if (!el.checked) return ''
+      return `${groupOf(el) || T.selected}${T.colon}${name || el.value}`
+    }
+    if (el.tagName === 'SELECT') return pair([...el.selectedOptions].map(o => o.text.trim()).join(T.and))
+    const value = el.value.trim()
+    if (!value) return ''
+    // A label that shows the value, in an <output> or in its text, says it
+    // already, with its unit.
+    if (label && (label.querySelector('output')?.textContent.trim() || showsValue(name, value))) return name
+    return pair(value.length > MAX_ITEM ? `${value.slice(0, MAX_ITEM - 1)}…` : value)
+  }
+
+  function stateItems() {
+    const items = []
+    const add = item => item && !items.includes(item) && items.push(item)
+    const addNamed = (what, text) => text && add(`${what}${T.colon}${text}`)
+    for (const tab of document.querySelectorAll('[role="tab"][aria-selected="true"]')) {
+      if (shown(tab)) addNamed(T.tab, textOf(tab))
+    }
+    for (const panel of document.querySelectorAll('.viz-carousel > [data-variant]:not([hidden])')) {
+      addNamed(T.variant, panel.dataset.variant.trim())
+    }
+    for (const tile of document.querySelectorAll('.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected)')) {
+      if (shown(tile)) addNamed(T.selected, textOf(tile))
+    }
+    for (const el of controls()) if (shown(el)) add(controlItem(el))
+    const readouts = [...document.querySelectorAll('output, .viz-stat, [aria-live]')].filter(el => !el.closest('label') && shown(el))
+    for (const el of readouts) {
+      if (!readouts.some(other => other !== el && other.contains(el))) add(textOf(el))
+    }
+    return items.slice(0, 40)
+  }
+
+  // The line for the composer, or null when there is nothing to quote.
+  function quote(title) {
+    const content = widgetState?.modelContent
+    const items =
+      content != null && content !== '' ? [typeof content === 'string' ? content.trim() : JSON.stringify(content)] : stateItems()
+    if (!items.length) return null
+    const name = String(title || '').trim() || document.querySelector('[role="img"][aria-label]')?.getAttribute('aria-label').trim()
+    return T.quote(name, items).slice(0, 4000)
+  }
+
+  // The host shows its button only while there is something to quote.
+  let quotable = false
+  function reportQuotable() {
+    let value = false
+    try {
+      value = quote() !== null
+    } catch {}
+    if (value === quotable) return
+    quotable = value
+    post('quotable', { value })
+  }
 
   // ---- errors --------------------------------------------------------------
 
@@ -502,8 +644,9 @@
       return widgetState
     },
     // Remembered with the visualization (T3 re-creates a message when it is
-    // scrolled back into view or the thread is reopened). Nothing reaches the
-    // model: T3 has no way to pass modelContent on.
+    // scrolled back into view or the thread is reopened). It reaches the
+    // model only when the user quotes it (see quote above): T3 has no way to
+    // pass modelContent on by itself.
     async setWidgetState(next) {
       const value = typeof next === 'function' ? next(widgetState) : next
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Widget state must be a JSON object')
@@ -514,6 +657,7 @@
       widgetState = state
       setGlobals({ widgetState })
       post('widget', { state })
+      reportQuotable()
     },
     async sendFollowUpMessage({ prompt } = {}) {
       window.t3viz.ask(prompt)

@@ -212,3 +212,65 @@ test('a variant carousel shows one design at a time, with controls to switch', a
   assert.equal(studio.hidden, false)
   assert.match(controls.querySelector('option').textContent, /Minimal · 1\/2/)
 })
+
+// "Quote current state": the host asks, the frame answers with one line.
+
+async function quoted(f, title = '') {
+  f.window.dispatchEvent(new f.window.MessageEvent('message', { source: f.window, data: { t3viz: 'quote', id: 'q1', title } }))
+  const reply = f.posted.filter(m => m.t3viz === 'quote').at(-1)
+  assert.equal(reply.id, 'q1')
+  return reply.text
+}
+
+test('a quote names each control with its value as its label shows it, then the readouts', async () => {
+  const source =
+    '<div class="viz-controls">' +
+    '<label class="form-label" for="theta">角度 θ = <output id="theta-out">0.80</output> rad\n' +
+    '  <input id="theta" type="range" min="0" max="6.28" step="0.01" value="0.8"></label>' +
+    '<label class="form-label">N = <span id="nv">5</span><input id="n" type="range" min="1" max="9" value="5"></label>' +
+    '<label class="form-label">模型<select id="m"><option>线性</option><option selected>非线性</option></select></label>' +
+    '<label class="form-check"><input type="checkbox" id="env" checked> 显示包络</label>' +
+    '<fieldset><legend>阻尼</legend><label><input type="radio" name="d" value="u"> 欠阻尼</label>' +
+    '<label><input type="radio" name="d" value="o" checked> 过阻尼</label></fieldset>' +
+    '<input type="number" aria-label="质量 m (kg)" value="2"><input type="text" placeholder="备注" value="">' +
+    '<div hidden><input id="h" value="9" aria-label="隐藏"></div>' +
+    '<button id="play" type="button" aria-pressed="true">暂停</button>' +
+    '<span id="readout" aria-live="polite">sin θ = 0.717</span></div>' +
+    '<div class="viz-stat"><div class="text-muted">周期</div><div class="viz-stat-value">3.14 s</div></div>' +
+    '<svg role="img" aria-label="单位圆与正弦曲线"></svg>'
+  const f = await frame(source, { lang: 'zh' })
+  assert.ok(f.posted.some(m => m.t3viz === 'quotable' && m.value === true))
+  assert.equal(
+    await quoted(f),
+    '（可视化「单位圆与正弦曲线」的当前状态：角度 θ = 0.80 rad；N = 5；模型：非线性；显示包络：开；阻尼：过阻尼；质量 m (kg)：2；sin θ = 0.717；周期 3.14 s）',
+  )
+})
+
+test('a quote gives the selected tab, variant and tile, and formulas as TeX; the host may name the visual', async () => {
+  const katex = tex =>
+    `<span class="katex"><span class="katex-mathml"><math><semantics><mi>q</mi><annotation encoding="application/x-tex">${tex}</annotation></semantics></math></span>` +
+    '<span class="katex-html" aria-hidden="true">q1</span></span>'
+  const source =
+    '<div role="tablist"><button role="tab" aria-selected="true" aria-controls="p1">Field</button><button role="tab" aria-selected="false">Potential</button></div>' +
+    `<div id="p1" role="tabpanel"><label>${katex('q_1')} = <output>2</output> nC<input type="range" value="2"></label></div>` +
+    '<div class="viz-carousel"><section data-variant="Minimal">m</section><section data-variant="Studio" hidden>s</section></div>' +
+    '<button class="viz-tile" aria-pressed="true">Point charge</button><button class="viz-tile" aria-pressed="false">Dipole</button>'
+  const f = await frame(source)
+  assert.equal(
+    await quoted(f, 'Gauss'),
+    '(Current state of the visualization "Gauss": Tab: Field; Variant: Minimal; Selected: Point charge; $q_1$ = 2 nC)',
+  )
+})
+
+test("Codex's modelContent is quoted as it is; a visual with nothing to quote has no button", async () => {
+  const withContent = await frame('<input id="n" type="range" value="3">', { widget: { modelContent: { N: 12 }, privateContent: null } })
+  assert.equal(await quoted(withContent, 'Fourier'), '(Current state of the visualization "Fourier": {"N":12})')
+
+  const still = await frame('<svg role="img" aria-label="A triangle"></svg><p>Angles add to 180°.</p>')
+  assert.equal(still.posted.filter(m => m.t3viz === 'quotable').length, 0)
+  assert.equal(await quoted(still), null)
+  // Until it saves something for the model.
+  await still.window.openai.setWidgetState({ modelContent: 'angle A = 40°' })
+  assert.ok(still.posted.some(m => m.t3viz === 'quotable' && m.value === true))
+  assert.equal(await quoted(still), '(Current state of the visualization "A triangle": angle A = 40°)')
+})

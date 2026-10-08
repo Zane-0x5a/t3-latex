@@ -36,7 +36,8 @@ Claude can put a live visual in a reply: a simulation, a plot with sliders, a 3D
 - Each visual runs in a sandboxed frame: it can't reach T3, your files or the network. It follows T3's light and dark themes, and its height fits its content.
 - d3, three.js (with its addons) and KaTeX are bundled, so visuals work offline. Scripts from jsDelivr, unpkg, esm.sh and cdnjs load too.
 - Slider and input values are remembered per visual: scroll away and back, or reopen the thread, and they are still set.
-- Hovering shows two buttons under a visual: expand it to most of the window (it keeps running) and reset it.
+- Hovering shows buttons under a visual: quote its current state, expand it to most of the window (it keeps running), and reset it.
+- The model wrote the visual but doesn't see what you do with it. "Quote current state" puts one line into the composer with each control's label and value and the visual's readouts, e.g. `(Current state of the visualization "…": damping ratio ζ = 2.32; state overdamped)`; add your question and send it. The button shows only when the visual has something to quote.
 - If a visual's code throws, the error shows in it, with a button that puts a fix request into the composer. A visual can offer follow-up questions the same way. Both go into the composer for you to send, and only right after you click in that visual.
 - While the block streams in, a placeholder shows its size; the visual starts once the block is complete.
 - Copying a message copies the block's source.
@@ -45,7 +46,7 @@ Claude can put a live visual in a reply: a simulation, a plot with sliders, a 3D
 
 <p align="center"><img src="docs/visualize-codex.webp" alt="A Codex reply in T3 Code: the Fourier series of a square wave, with a slider for the number of terms, the latest term and the partial sum against the ideal square wave, showing the Gibbs overshoot" width="100%"></p>
 
-Codex has a visualize plugin of its own (it comes with the Codex app, and T3 loads Codex's plugins too). It writes the visual to an HTML file and puts a `visualize{"path": …}` line in its reply. T3 as shipped shows that line as text; with t3-latex the visual shows in its place, in the same sandbox and with the same theme, expand and reset as above.
+Codex has a visualize plugin of its own (it comes with the Codex app, and T3 loads Codex's plugins too). It writes the visual to an HTML file and puts a `visualize{"path": …}` line in its reply. T3 as shipped shows that line as text; with t3-latex the visual shows in its place, in the same sandbox and with the same theme, quote, expand and reset as above.
 
 - Nothing to set up: ask Codex in T3 to show you something, or let it offer.
 - What Codex's visuals expect from their host is there: `window.openai` (the state a visual saves, follow-up questions, links), Lucide icons, tabs, variant carousels, and the classes of Codex's stylesheet.
@@ -109,6 +110,7 @@ The logs are `%TEMP%\t3-latex\launcher.log` and `%TEMP%\t3-latex\loader.log`.
 - `src/viz-element.js` defines that element. It holds a sandboxed iframe (`allow-scripts` only, so an opaque origin) on `t3code://app/__t3latex/frame/frame.html`, which `mod/serve.cjs` serves with its own Content-Security-Policy: scripts from the bundled libraries and the four CDNs, nothing fetched from anywhere.
 - The block's HTML, T3's theme and the remembered input values reach the frame in its `window.name`. `frame/runtime.js` writes the HTML into the page while the page is still parsing, so its scripts run in order, as on any page.
 - The frame reports its height, its input values and the user's requests (a question for the composer, a link for the browser) over `postMessage`. The page treats all of it as untrusted: the composer and the browser need a click in that frame just before.
+- "Quote current state" asks the frame for its line; the frame builds it from the controls' labels, the `<output>`, `.viz-stat` and `aria-live` readouts and the selected tab, variant or tile, or takes a Codex visual's own `modelContent`. Only the frame's answer to that click goes into the composer.
 - Heights and input values are kept in T3's `localStorage`, keyed by a hash of the block, for the last 300 visuals.
 - A Codex line (Codex wraps it in private-use characters: U+E200 `visualize` U+E202 `{…}` U+E201) becomes the same element with the file's path in it. The element reads the file through the loader at `t3code://app/__t3latex/file?path=…` (`mod/serve.cjs`), which serves only `.html` files and only to T3's own page: no CORS headers, and requests from an opaque origin such as the frame are refused. `frame/runtime.js` gives Codex's HTML its `window.openai`, Lucide, tabs and carousels; the state it saves is kept like the input values.
 
@@ -126,7 +128,7 @@ T3's Cite builds the quote from a message's text nodes and skips anything `aria-
 - **The debug port.** For about 0.2 s while T3 starts, its main process has a debug port open on a random port of `127.0.0.1`; the launcher closes it once the loader is in. During that time another program on the same machine could, in principle, connect to it.
 - **Two Electron fuses.** The approach needs T3's exe to accept `--inspect-brk` and `ELECTRON_RUN_AS_NODE`. Both fuses are on today, and T3's own Windows server relies on the second one. If T3 turns either off, this way of loading stops working.
 - **The skill is for Claude Code;** Codex uses its own plugin (above). Other models in T3 draw a visual only when asked for a ```` ```visualize ```` block of HTML, without knowing the conventions.
-- **Codex's visuals, as far as T3 goes.** Codex's day-schedule widget (`<viz-calendar>`) and its design-control panel for mockups (`Tweak`) aren't there; a visual using them shows the rest. The state a visual saves stays with it: the Codex app passes it back to the model, T3 doesn't. And the file has to be on this PC: a Codex running in WSL or on a remote machine writes it where t3-latex can't read it.
+- **Codex's visuals, as far as T3 goes.** Codex's day-schedule widget (`<viz-calendar>`) and its design-control panel for mockups (`Tweak`) aren't there; a visual using them shows the rest. The state a visual saves stays with it: the Codex app passes it back to the model by itself, T3 only when you quote it. And the file has to be on this PC: a Codex running in WSL or on a remote machine writes it where t3-latex can't read it.
 - **CDN scripts need the network,** and some CDNs are slow or blocked on some networks. The bundled libraries don't.
 - **Windows only.**
 
@@ -170,7 +172,7 @@ src/katex.js            cached rehype-katex with data-markdown-copy (T3's copy) 
 src/selection.js        selections snap to whole formulas; drags that start on a formula
 src/plugins.js          the remark / rehype plugins handed to T3, and the markdown pass before them
 src/visualize.js        ```visualize blocks and Codex's visualize{"path"} lines → <t3latex-viz>; still streaming → a placeholder
-src/viz-element.js      <t3latex-viz>: the sandboxed frame, theme, height, remembered state, expand and reset; reads Codex's files
+src/viz-element.js      <t3latex-viz>: the sandboxed frame, theme, height, remembered state, quote, expand and reset; reads Codex's files
 src/boot.js             renderer entry, exposed as globalThis.__t3latex
 src/t3-latex.css        KaTeX layout fixes for the chat (sideways scrolling, numbering per message)
 mod/loader.cjs          the loader in T3's main process
