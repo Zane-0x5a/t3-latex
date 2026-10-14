@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fix: "T3 Code (LaTeX)" could vanish from the Start menu, leaving only "T3 Code (Alpha)", which opens T3 without math. The first time T3 shows a notification, Electron 44 gives T3's own Start menu shortcut the app id T3 runs under, which is the one of "T3 Code (LaTeX)", and the Start menu lists one shortcut per app id. The loader now gives T3's shortcut its own id back whenever that happens.
+- Display math is larger: 1.25em, where inline math stays at 1.1em. In display math, a fraction inside a fraction is set as `\dfrac`, so in stacked fractions such as `\frac{a}{\frac{b}{c}}` the inner parts no longer shrink to 70% and their exponents to 50%. Fractions in exponents, matrices and inline math, and any written `\tfrac`, keep their usual size.
 
 ## 0.2.1 — 2026-10-08
 

@@ -24,6 +24,7 @@
   左 `$` 后面不能是空格，右 `$` 前面不能是空格、后面不能紧跟数字；另外在中文里，以数字开头又夹着中文标点的不算公式。
 - 生成到一半的回复里还没闭合的 `$$`、`\[` 按原文显示，不会吞掉后面的内容，也不会闪出红色错误。
 - 公式编号在每条消息内从 (1) 编起；`\label` 会被去掉（KaTeX 不支持）；支持 `\ce{H2O}`（mhchem）。
+- 独立公式比行内公式大一号。独立公式里，分式中的分式按 `\dfrac` 排，不再缩小两级，各部分保持正常字号；指数里、矩阵里和行内的分式仍按 TeX 的常规字号。
 - 比聊天栏宽的独立公式可以横向滚动。
 - 选中文字复制时，公式复制出来的是 `$…$` / `$$…$$` 源码（走 T3 自己的复制逻辑）。
 - 选中带公式的文字可以用 T3 的「Cite」引用，引用里的公式也是 TeX 源码。选区只要碰到公式，
@@ -205,13 +206,13 @@ node dev/t3.cjs js @dev/copy-selection.js               # 看复制最后一条�
 
 ```
 src/normalize.js        定界符统一（$$…$$、\[…\]、\(…\)、裸环境、价格、流式未闭合）
-src/katex.js            带缓存的 rehype-katex，附 data-markdown-copy（T3 复制用）和隐藏的源码文字（T3 引用用）
+src/katex.js            带缓存的 rehype-katex，附 data-markdown-copy（T3 复制用）和隐藏的源码文字（T3 引用用）；独立分式里的分式不缩小
 src/selection.js        选区整体吸附到公式，从公式上开始的拖动
 src/plugins.js          追加给 T3 的 remark / rehype 插件，以及它们之前的 markdown 预处理
 src/visualize.js        ```visualize 代码块和 Codex 的 visualize{"path"} 行 → <t3latex-viz>；流式输出中的 → 占位框
 src/viz-element.js      <t3latex-viz>：沙箱 iframe、主题、高度、记住的状态、引用、放大和重置；读取 Codex 的文件
 src/boot.js             渲染进程入口，挂到 globalThis.__t3latex
-src/t3-latex.css        聊天栏里的 KaTeX 排版修正（横向滚动、每条消息的编号）
+src/t3-latex.css        聊天栏里的 KaTeX 排版修正（独立公式字号、横向滚动、每条消息的编号）
 mod/loader.cjs          T3 主进程里的加载器
 mod/patch.cjs           react-markdown 的三处修改
 mod/serve.cjs           提供 mod/assets（给 iframe 的 CORS、iframe 的安全策略）和 Codex 的可视化文件

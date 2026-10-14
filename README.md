@@ -20,6 +20,7 @@ It is not a fork and it doesn't patch T3's install: the official T3 runs, keeps 
 - No false positives: prices like `$5 and $10`, `$HOME`, `$` in code spans and code blocks, and escaped `\$` stay text. The rules follow pandoc's: an opening `$` can't be followed by a space, a closing `$` can't follow a space or be followed by a digit.
 - While a reply streams in, an unclosed `$$` or `\[` shows as text until it closes. Nothing after it gets swallowed, and no red errors flash up.
 - Equation numbers restart at (1) in each message. `\label` is dropped (KaTeX doesn't support it). `\ce{H2O}` works (mhchem).
+- Display math is set larger than inline math. In display math, a fraction inside a fraction is set as `\dfrac` rather than shrunk twice, so its parts stay full size. Fractions in exponents, matrices and inline math keep TeX's usual sizes.
 - Display math wider than the chat scrolls sideways.
 - Copying a selection copies formulas as `$…$` / `$$…$$` source, through T3's own copy handler.
 - T3's **Cite** works on text with formulas and quotes them as TeX. A selection that touches a formula takes the whole formula, and dragging from a formula or double-clicking one works too.
@@ -172,13 +173,13 @@ The Start menu is the one thing it shares with your T3: its first notification g
 
 ```
 src/normalize.js        delimiter normalizer ($$…$$, \[…\], \(…\), bare environments, prices, unclosed while streaming)
-src/katex.js            cached rehype-katex with data-markdown-copy (T3's copy) and hidden source text (T3's Cite)
+src/katex.js            cached rehype-katex with data-markdown-copy (T3's copy) and hidden source text (T3's Cite); fractions in display fractions unshrunk
 src/selection.js        selections snap to whole formulas; drags that start on a formula
 src/plugins.js          the remark / rehype plugins handed to T3, and the markdown pass before them
 src/visualize.js        ```visualize blocks and Codex's visualize{"path"} lines → <t3latex-viz>; still streaming → a placeholder
 src/viz-element.js      <t3latex-viz>: the sandboxed frame, theme, height, remembered state, quote, expand and reset; reads Codex's files
 src/boot.js             renderer entry, exposed as globalThis.__t3latex
-src/t3-latex.css        KaTeX layout fixes for the chat (sideways scrolling, numbering per message)
+src/t3-latex.css        KaTeX layout fixes for the chat (display size, sideways scrolling, numbering per message)
 mod/loader.cjs          the loader in T3's main process
 mod/patch.cjs           the react-markdown edits
 mod/serve.cjs           serves mod/assets (CORS for the frame, the frame's policy) and Codex's visual files

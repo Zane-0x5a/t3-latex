@@ -19,6 +19,9 @@
 // (selection.js) always starts and ends on text T3 accepts. The source text
 // also stands in for KaTeX's MathML for screen readers, which is why the
 // MathML is left out: it would be read out twice, and T3 would quote it.
+//
+// It also changes one typesetting rule: a fraction inside a display-style
+// fraction is not shrunk (see "Fractions in fractions" below).
 
 import katex from 'katex'
 import 'katex/contrib/mhchem' // \ce{…} and \pu{…}
@@ -37,6 +40,51 @@ export const KATEX_OPTIONS = Object.freeze({
   trust: false,
   maxExpand: 1000,
 })
+
+// Fractions in fractions. TeX sets the numerator and denominator of a display
+// fraction at text style, so a fraction in them gets script-size parts (70%)
+// with exponents at 50%: in k = \frac{y_1-y_2}{\frac{y_1^2}{4}-\frac{y_2^2}{4}}
+// those are too small to read in the chat. So \frac, \dfrac, \tfrac and \cfrac
+// are redefined (as KaTeX defines them in functions/genfrac.ts) to turn each
+// fraction directly in their numerator or denominator into a \mathchoice
+// that is \dfrac at text style and itself otherwise. Text style there means
+// the outer fraction is display style; under a fraction in an exponent, a
+// matrix or inline math the inner one is at script style and keeps its size,
+// and one written \tfrac or \textstyle is left as written.
+const FRACTION_STYLE = { '\\frac': null, '\\dfrac': 'display', '\\tfrac': 'text', '\\cfrac': 'display' }
+
+katex.__defineFunction({
+  type: 'genfrac',
+  names: Object.keys(FRACTION_STYLE),
+  props: { numArgs: 2, allowedInArgument: true },
+  handler({ parser, funcName }, [numer, denom]) {
+    const frac = {
+      type: 'genfrac',
+      mode: parser.mode,
+      numer: unshrink(numer),
+      denom: unshrink(denom),
+      continued: funcName === '\\cfrac',
+      hasBarLine: true,
+      leftDelim: null,
+      rightDelim: null,
+      barSize: null,
+    }
+    const style = FRACTION_STYLE[funcName]
+    return style ? { type: 'styling', mode: parser.mode, style, body: [frac] } : frac
+  },
+})
+
+// Directly: through braces, \left…\right and \color, not into exponents,
+// roots or style changes. A nested fraction has already had its own done.
+function unshrink(node) {
+  if (node.type === 'genfrac') {
+    const { mode } = node
+    const display = { type: 'styling', mode, style: 'display', body: [node] }
+    return { type: 'mathchoice', mode, display: [node], text: [display], script: [node], scriptscript: [node] }
+  }
+  if (node.type === 'ordgroup' || node.type === 'leftright' || node.type === 'color') node.body = node.body.map(unshrink)
+  return node
+}
 
 export default function rehypeKatexCached(options) {
   const settings = { ...KATEX_OPTIONS, ...options }

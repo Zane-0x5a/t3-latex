@@ -140,6 +140,29 @@ test('broken TeX shows KaTeX error markup, not a crash', () => {
   assert.ok(r.errors >= 1, r.out)
 })
 
+// The glyphs of the first formula, and the size changes KaTeX marks in them:
+// size3 is script size (70%), size1 scriptscript (50%).
+const glyphs = md => new JSDOM(html(md)).window.document.querySelector('.katex-html').innerHTML
+const sizes = md => [...glyphs(md).matchAll(/reset-size\d+ size(\d+)/g)].map(m => Number(m[1]))
+
+test('a fraction in a display fraction is set as \\dfrac', () => {
+  assert.equal(
+    glyphs('$$k = \\frac{y_1 - y_2}{\\frac{y_1^2}{4} - \\frac{y_2^2}{4}}$$'),
+    glyphs('$$k = \\frac{y_1 - y_2}{\\dfrac{y_1^2}{4} - \\dfrac{y_2^2}{4}}$$'),
+  )
+  assert.equal(glyphs('$$\\dfrac{1}{\\left(1 + \\frac{1}{x}\\right)}$$'), glyphs('$$\\dfrac{1}{\\left(1 + \\dfrac{1}{x}\\right)}$$'))
+  assert.equal(glyphs('$${a \\over \\frac{b}{c}}$$'), glyphs('$${\\frac{a}{\\dfrac{b}{c}}}$$'))
+  assert.deepEqual(sizes('$$\\frac{1}{1 + \\frac{1}{1 + \\frac{1}{x}}}$$'), [])
+})
+
+test('other fractions keep their size', () => {
+  assert.ok(sizes('$$e^{\\frac{1}{1 + \\frac{1}{x}}}$$').includes(1), 'in an exponent')
+  assert.ok(sizes('$$\\begin{pmatrix} \\frac{1}{\\frac{1}{2}} \\end{pmatrix}$$').includes(1), 'in a matrix')
+  assert.ok(sizes('$\\frac{a}{\\frac{b}{c}}$').includes(1), 'inline')
+  assert.deepEqual(sizes('$$\\frac{a}{\\tfrac{b}{c}}$$'), [3, 3], 'written \\tfrac')
+  assert.deepEqual(sizes('$$\\frac{a}{\\textstyle\\frac{b}{c}}$$'), [3, 3], 'under \\textstyle')
+})
+
 const LONG = [
   '设 $f(x) = x^2$，则 $f\'(x) = 2x$。价格 $5 不是公式。',
   '',

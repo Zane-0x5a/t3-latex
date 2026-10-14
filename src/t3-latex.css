@@ -18,6 +18,12 @@
   font-size: 1.1em;
 }
 
+/* Display math is set larger than math in a line: its stacked fractions,
+   limits and exponents are small to read at text size. */
+.chat-markdown .katex-display > .katex {
+  font-size: 1.25em;
+}
+
 /* Display math that opens a list item sits closer to the marker. */
 .chat-markdown li > .katex-display:first-child {
   margin-top: 0.25em;
