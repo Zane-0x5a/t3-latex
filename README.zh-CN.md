@@ -102,7 +102,7 @@ T3 本身从没被改过，所以没有别的需要还原。
           → 连上这个本机调试口，让主进程加载 mod\loader.cjs，放行，再关掉调试口
 ```
 
-`mod/loader.cjs` 在 T3 主进程里做三件事：
+`mod/loader.cjs` 在 T3 主进程里做四件事：
 
 1. 包一层 T3 为 `t3code://` 注册的协议处理函数：在 `t3code://app/__t3latex/` 下提供 `mod/assets/`
    （KaTeX 样式与字体、渲染模块、可视化运行的 iframe 页面，见 `mod/serve.cjs`），并在窗口的 `index.html` 里加上前两样；
@@ -114,7 +114,10 @@ T3 本身从没被改过，所以没有别的需要还原。
    - 改某些设置后 T3 会自行重启，加载器让它经启动器重启，新窗口照样有公式；
    - 「重启以更新」时，去掉安装程序的 `--force-run`，由 `mod/after-update.js`（Windows Script Host）
      等安装结束后经启动器打开新版 T3；
-   - 去掉 T3 子进程会继承到的 `--inspect-brk`，否则子进程会停下来等调试器。
+   - 去掉 T3 子进程会继承到的 `--inspect-brk`，否则子进程会停下来等调试器；
+4. 保住 T3 自己在开始菜单里的条目：T3 第一次弹系统通知时，Electron 44 会把 T3 自己的开始菜单快捷方式
+   改成 T3 当前运行用的 ID，也就是「T3 Code (LaTeX)」的 ID。开始菜单每个 ID 只列一个快捷方式，两个里就会少一个。
+   加载器盯着这个快捷方式，一被改就把 T3 自己的 ID 换回去（`mod/restore-shortcut.ps1`）。
 
 任何一步失败，T3 都按原样运行，只是没有公式：
 
@@ -178,7 +181,8 @@ powershell -ExecutionPolicy Bypass -File install.ps1   # 快捷方式指向这�
 ```
 
 `npm test` 覆盖：定界符统一和完整渲染管线（含可视化代码块）；可视化 iframe 的运行时（jsdom，含 Codex 的接口）和加载器提供的文件（iframe 的策略、CORS、路径不越界、Codex 的文件只给 T3 的页面）；react-markdown 的修改和带公式的 Cite（这两项直接用本机已装 T3 的代码，
-`T3LATEX_T3_DIR` 指向另一个含 `resources\server.asar` 的目录就检查那个版本）；启动器环境；批处理（会临时写入并删掉 `HKCU\Software\t3latex-test`）。
+`T3LATEX_T3_DIR` 指向另一个含 `resources\server.asar` 的目录就检查那个版本）；启动器环境；恢复 T3 的开始菜单快捷方式（在临时文件夹里的快捷方式上测），
+以及本机已装 T3 自己的 ID；批处理（会临时写入并删掉 `HKCU\Software\t3latex-test`）。
 
 在隔离的 T3 里看效果（独立的 APPDATA、T3CODE_HOME、TEMP 和任务栏身份，关掉自动更新，碰不到正在用的 T3；
 被别的窗口挡住时也照常渲染，截图和模拟输入才可靠）：
@@ -196,6 +200,9 @@ node dev/t3.cjs main @dev/simulate-update.js            # 模拟「重启以更�
 node dev/t3.cjs js @dev/copy-selection.js               # 看复制最后一条消息会得到什么（不碰系统剪贴板）
 ```
 
+它和正在用的 T3 只共用开始菜单：它第一次弹通知时，T3 真正的开始菜单快捷方式会被改成测试用的 ID，
+一两秒后它的加载器再把 T3 自己的 ID 换回去。
+
 ```
 src/normalize.js        定界符统一（$$…$$、\[…\]、\(…\)、裸环境、价格、流式未闭合）
 src/katex.js            带缓存的 rehype-katex，附 data-markdown-copy（T3 复制用）和隐藏的源码文字（T3 引用用）
@@ -209,6 +216,8 @@ mod/loader.cjs          T3 主进程里的加载器
 mod/patch.cjs           react-markdown 的三处修改
 mod/serve.cjs           提供 mod/assets（给 iframe 的 CORS、iframe 的安全策略）和 Codex 的可视化文件
 mod/after-update.js     更新安装结束后经启动器重开 T3
+mod/restore-shortcut.ps1  把 T3 开始菜单快捷方式的 ID 换回 T3 自己的
+mod/shortcut.cs         PowerShell 脚本共用的快捷方式工具（ID、图标）
 mod/assets/             build.mjs 的产物（含 THIRD-PARTY-NOTICES.txt）
 frame/                  可视化的 iframe 页面：frame.html、runtime.js、frame.css、各个库的入口
 skill/t3-visualize/     install.ps1 复制的 Claude Code skill

@@ -154,6 +154,55 @@ function markRunning() {
   } catch {}
 }
 
+// ---- T3's own Start menu shortcut ------------------------------------------
+
+// The launcher runs T3 under the "T3 Code (LaTeX)" shortcut's AppUserModelID.
+// The first time T3 shows a notification, Electron (44 and later) makes sure
+// the Start menu's "<app name>.lnk", which is T3's own shortcut, points at
+// T3's exe with the running app's ID, and rewrites it if not. Then two
+// shortcuts share our ID and the Start menu lists only one of them, often
+// T3's: "T3 Code (LaTeX)" is gone from it, and T3's own entry starts T3
+// without math. So when T3's shortcut gets our ID, give it T3's own back
+// (restore-shortcut.ps1). Electron checks once per run, so it stays put.
+const T3_APP_ID = 'com.t3tools.t3code' // T3's own, without T3CODE_DESKTOP_APP_USER_MODEL_ID
+const RESTORE_SCRIPT = path.join(__dirname, 'restore-shortcut.ps1')
+
+async function guardStartMenuShortcut() {
+  const ours = process.env.T3CODE_DESKTOP_APP_USER_MODEL_ID
+  if (process.platform !== 'win32' || !ours || ours === T3_APP_ID) return
+  const name = electron.app.getName()
+  const execFile = require('node:util').promisify(require('node:child_process').execFile)
+  const restore = async () => {
+    const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', RESTORE_SCRIPT]
+    args.push('-Name', name, '-Exe', process.execPath, '-From', ours, '-To', T3_APP_ID)
+    const { stdout } = await execFile('powershell.exe', args, { windowsHide: true })
+    const [dir, ...done] = stdout.trim().split(/\r?\n/)
+    for (const line of done) log(line)
+    return dir
+  }
+
+  // Leftovers first (a run that ended before restoring); the script also
+  // says where the Start menu is.
+  const dir = await restore()
+  const file = `${name}.lnk`.toLowerCase()
+  const marked = Buffer.from(`${ours}\0`, 'utf16le') // as the shortcut stores it
+  let timer
+  const check = () => {
+    try {
+      if (!fs.readFileSync(path.join(dir, file)).includes(marked)) return
+    } catch {
+      return
+    }
+    restore().catch(err => log('could not restore the Start menu shortcut', err && err.message))
+  }
+  fs.watch(dir, (event, changed) => {
+    if (changed && changed.toLowerCase() !== file) return
+    clearTimeout(timer)
+    timer = setTimeout(check, 1000)
+  }).on('error', err => log('stopped watching the Start menu', err && err.message))
+  check() // in case it changed before the watch began
+}
+
 // ---- install ---------------------------------------------------------------
 
 try {
@@ -228,5 +277,12 @@ try {
 } catch (err) {
   log('could not wrap child_process.spawn', err && err.stack)
 }
+
+// Once T3 has set its app name and is past its busy start.
+electron.app
+  .whenReady()
+  .then(() => new Promise(resolve => setTimeout(resolve, 15000)))
+  .then(guardStartMenuShortcut)
+  .catch(err => log('could not guard the Start menu shortcut', err && err.message))
 
 log('installed')

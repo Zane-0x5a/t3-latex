@@ -26,6 +26,8 @@ const FILES = [
   'mod/patch.cjs',
   'mod/serve.cjs',
   'mod/after-update.js',
+  'mod/restore-shortcut.ps1',
+  'mod/shortcut.cs',
   'mod/assets',
   'skill',
 ]

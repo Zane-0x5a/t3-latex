@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix: "T3 Code (LaTeX)" could vanish from the Start menu, leaving only "T3 Code (Alpha)", which opens T3 without math. The first time T3 shows a notification, Electron 44 gives T3's own Start menu shortcut the app id T3 runs under, which is the one of "T3 Code (LaTeX)", and the Start menu lists one shortcut per app id. The loader now gives T3's shortcut its own id back whenever that happens.
+
 ## 0.2.1 — 2026-10-08
 
 - "Quote current state", a button under each visual: it puts one line into the composer saying what the visual is set to and shows (each control's label and value, its readouts, the selected tab or variant; for a Codex visual, the `modelContent` it saved), so the model can see what you see. Nothing is sent until you send it.

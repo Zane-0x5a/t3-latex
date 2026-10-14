@@ -95,6 +95,7 @@ Inside T3's main process, `mod/loader.cjs`:
    - settings that relaunch T3 relaunch it through `t3-latex.cmd`;
    - for *Restart to update*, it drops the installer's `--force-run`. `mod/after-update.js` (Windows Script Host) then waits for the installer to finish and starts the new T3 through `t3-latex.cmd`. That also finds T3 again if the update renamed its exe.
    - It keeps `--inspect-brk` away from the processes T3 starts.
+4. Keeps T3's own Start menu entry. The first time T3 shows a notification, Electron 44 gives T3's own Start menu shortcut the app id T3 runs under, which is the one of "T3 Code (LaTeX)". The Start menu lists one shortcut per app id, so one of the two would vanish from it. The loader watches that shortcut and gives it T3's id back (`mod/restore-shortcut.ps1`).
 
 If any step fails, T3 runs as shipped and shows plain text:
 
@@ -149,6 +150,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1   # shortcuts pointing at t
 - the visualization frame's runtime (in jsdom), Codex's API included, and what the loader serves (the frame's policy, CORS, no path escapes, Codex's files only to T3's page);
 - the react-markdown edits and Cite on rendered formulas, both run against the code of the T3 installed on the machine (set `T3LATEX_T3_DIR` to a folder holding another build's `resources\server.asar` to check that build);
 - the launcher's environment;
+- restoring T3's Start menu shortcut, on shortcuts in a temp folder, and T3's own app id in the installed T3;
 - the batch files. These tests briefly write and then delete the registry key `HKCU\Software\t3latex-test`.
 
 An isolated T3 for trying changes. It has its own `APPDATA`, `T3CODE_HOME`, `TEMP` and taskbar identity and auto-update off, so it never touches the T3 you use, and it keeps rendering while covered by other windows:
@@ -166,6 +168,8 @@ node dev/t3.cjs main @dev/simulate-update.js            # simulate "Restart to u
 node dev/t3.cjs js @dev/copy-selection.js               # what copying the last message gives (leaves the clipboard alone)
 ```
 
+The Start menu is the one thing it shares with your T3: its first notification gives T3's real Start menu shortcut the test app id, for a second or two, until its loader gives it T3's id back.
+
 ```
 src/normalize.js        delimiter normalizer ($$…$$, \[…\], \(…\), bare environments, prices, unclosed while streaming)
 src/katex.js            cached rehype-katex with data-markdown-copy (T3's copy) and hidden source text (T3's Cite)
@@ -179,6 +183,8 @@ mod/loader.cjs          the loader in T3's main process
 mod/patch.cjs           the react-markdown edits
 mod/serve.cjs           serves mod/assets (CORS for the frame, the frame's policy) and Codex's visual files
 mod/after-update.js     brings T3 back through the launcher after an update
+mod/restore-shortcut.ps1  gives T3's Start menu shortcut its own app id back
+mod/shortcut.cs         shortcut helpers for the PowerShell scripts (app id, icon)
 mod/assets/             built by build.mjs (with THIRD-PARTY-NOTICES.txt)
 frame/                  the frame page: frame.html, runtime.js, frame.css, library entries
 skill/t3-visualize/     the Claude Code skill install.ps1 copies
