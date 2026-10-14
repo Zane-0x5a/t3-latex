@@ -185,7 +185,7 @@ mod/patch.cjs           the react-markdown edits
 mod/serve.cjs           serves mod/assets (CORS for the frame, the frame's policy) and Codex's visual files
 mod/after-update.js     brings T3 back through the launcher after an update
 mod/restore-shortcut.ps1  gives T3's Start menu shortcut its own app id back
-mod/shortcut.cs         shortcut helpers for the PowerShell scripts (app id, icon)
+mod/shortcut.cs         shortcut helpers for the PowerShell scripts (make and read shortcuts, app id, icon)
 mod/assets/             built by build.mjs (with THIRD-PARTY-NOTICES.txt)
 frame/                  the frame page: frame.html, runtime.js, frame.css, library entries
 skill/t3-visualize/     the Claude Code skill install.ps1 copies

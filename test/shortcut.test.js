@@ -24,18 +24,19 @@ const ps = (script, ...args) =>
     .trim()
     .split(/\r?\n/)
 
-// A temp folder (its name outside ASCII, as a Chinese user name would make
-// the Start menu's) with helpers to make and read shortcuts there.
+// A temp folder (its name outside ASCII and outside the Chinese code page, as
+// a user name can make the Start menu's) with helpers to make and read
+// shortcuts there.
 function withFolder(fn) {
-  const dir = mkdtempSync(join(tmpdir(), 't3latex-开始菜单-'))
+  const dir = mkdtempSync(join(tmpdir(), 't3latex-开始菜单-한-'))
   try {
     const make = join(dir, 'make.ps1')
     writeFileSync(
       make,
       '\uFEFFparam($Path, $Target, $Arguments, $Id)\r\n' +
+        "$ErrorActionPreference = 'Stop'\r\n" +
         `Add-Type -Path '${join(ROOT, 'mod', 'shortcut.cs')}'\r\n` +
-        '$l = (New-Object -ComObject WScript.Shell).CreateShortcut($Path)\r\n' +
-        '$l.TargetPath = $Target; if ($Arguments) { $l.Arguments = $Arguments }; $l.Save()\r\n' +
+        '[T3Latex.Shortcut]::Create($Path, $Target, $Arguments)\r\n' +
         '[T3Latex.Shortcut]::SetAppUserModelId($Path, $Id)\r\n',
     )
     fn({

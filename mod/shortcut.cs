@@ -2,6 +2,8 @@
 // mod\restore-shortcut.ps1, dev\read-shortcut.ps1), loaded with Add-Type.
 using System;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 namespace T3Latex {
   [StructLayout(LayoutKind.Sequential, Pack = 4)]
   public struct PropertyKey { public Guid fmtid; public uint pid; }
@@ -19,11 +21,67 @@ namespace T3Latex {
     void SetValue(ref PropertyKey key, ref PropVariant value);
     void Commit();
   }
+  [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+  class ShellLink { }
+  // The Unicode shell link interface: WScript.Shell's shortcuts could not be
+  // saved under a folder outside ASCII on GitHub's runners.
+  [ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IShellLinkW {
+    void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder file, int size, IntPtr findData, uint flags);
+    void GetIDList(out IntPtr idList);
+    void SetIDList(IntPtr idList);
+    void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder name, int size);
+    void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string name);
+    void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder dir, int size);
+    void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string dir);
+    void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder args, int size);
+    void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string args);
+    void GetHotkey(out short hotkey);
+    void SetHotkey(short hotkey);
+    void GetShowCmd(out int showCmd);
+    void SetShowCmd(int showCmd);
+    void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int size, out int index);
+    void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string path, int index);
+    void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string path, uint reserved);
+    void Resolve(IntPtr window, uint flags);
+    void SetPath([MarshalAs(UnmanagedType.LPWStr)] string file);
+  }
   public static class Shortcut {
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
     static extern void SHGetPropertyStoreFromParsingName(string path, IntPtr bindCtx, int flags, ref Guid iid,
       [MarshalAs(UnmanagedType.Interface)] out IPropertyStore store);
     static PropertyKey AppUserModelId = new PropertyKey { fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), pid = 5 };
+    // A shortcut to target (with arguments, which may be empty) at path.
+    public static void Create(string path, string target, string arguments) {
+      IShellLinkW link = (IShellLinkW)new ShellLink();
+      try {
+        link.SetPath(target);
+        link.SetArguments(arguments ?? "");
+        ((IPersistFile)link).Save(path, true);
+      } finally { Marshal.ReleaseComObject(link); }
+    }
+    // The target as stored, as Electron reads it (SLGP_RAWPATH).
+    public static string GetTarget(string path) {
+      IShellLinkW link = Load(path);
+      try {
+        StringBuilder target = new StringBuilder(32768);
+        link.GetPath(target, target.Capacity, IntPtr.Zero, 4 /* SLGP_RAWPATH */);
+        return target.ToString();
+      } finally { Marshal.ReleaseComObject(link); }
+    }
+    public static string GetArguments(string path) {
+      IShellLinkW link = Load(path);
+      try {
+        StringBuilder args = new StringBuilder(32768);
+        link.GetArguments(args, args.Capacity);
+        return args.ToString();
+      } finally { Marshal.ReleaseComObject(link); }
+    }
+    static IShellLinkW Load(string path) {
+      IShellLinkW link = (IShellLinkW)new ShellLink();
+      ((IPersistFile)link).Load(path, 0 /* STGM_READ */);
+      return link;
+    }
     public static void SetAppUserModelId(string path, string id) {
       Guid iid = typeof(IPropertyStore).GUID;
       IPropertyStore store;

@@ -218,7 +218,7 @@ mod/patch.cjs           react-markdown 的三处修改
 mod/serve.cjs           提供 mod/assets（给 iframe 的 CORS、iframe 的安全策略）和 Codex 的可视化文件
 mod/after-update.js     更新安装结束后经启动器重开 T3
 mod/restore-shortcut.ps1  把 T3 开始菜单快捷方式的 ID 换回 T3 自己的
-mod/shortcut.cs         PowerShell 脚本共用的快捷方式工具（ID、图标）
+mod/shortcut.cs         PowerShell 脚本共用的快捷方式工具（建立和读取快捷方式、ID、图标）
 mod/assets/             build.mjs 的产物（含 THIRD-PARTY-NOTICES.txt）
 frame/                  可视化的 iframe 页面：frame.html、runtime.js、frame.css、各个库的入口
 skill/t3-visualize/     install.ps1 复制的 Claude Code skill

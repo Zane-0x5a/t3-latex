@@ -21,9 +21,9 @@ if (-not (Test-Path -LiteralPath $path)) { return }
 # ("1F-00-..."), which only matches whole bytes, at any offset.
 $hex = [BitConverter]::ToString([IO.File]::ReadAllBytes($path))
 if (-not $hex.Contains([BitConverter]::ToString([Text.Encoding]::Unicode.GetBytes("$From`0")))) { return }
-# Electron's shortcut: T3's exe itself.
-if ((New-Object -ComObject WScript.Shell).CreateShortcut($path).TargetPath -ne $Exe) { return }
 Add-Type -Path (Join-Path $PSScriptRoot 'shortcut.cs')
+# Electron's shortcut: T3's exe itself.
+if ([T3Latex.Shortcut]::GetTarget($path) -ne $Exe) { return }
 if ([T3Latex.Shortcut]::GetAppUserModelId($path) -ne $From) { return }
 [T3Latex.Shortcut]::SetAppUserModelId($path, $To)
 "restored $path"
